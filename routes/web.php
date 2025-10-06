@@ -12,10 +12,10 @@ Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
 
-Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
+Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register.show');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
 
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login.show');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login.show');;
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -44,5 +44,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::delete('/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
     
     Route::get('/tags', [AdminController::class, 'tags'])->name('admin.tags');
-    Route::get('/statistics', [AdminController::class, 'statistics'])->name('admin.statistics');
+    Route::post('/tags', [AdminController::class, 'storeTag'])->name('admin.tags.store');
+    Route::delete('/tags/{id}', [AdminController::class, 'deleteTag'])->name('admin.tags.destroy');
 });

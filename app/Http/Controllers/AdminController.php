@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Like;
 use App\Models\UserMatch;
+use App\Models\Tag;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
@@ -26,7 +27,6 @@ class AdminController extends Controller
 
     public function users()
     {
-        // Используем кастомный метод для подсчета мэтчей
         $users = User::withCount(['sentLikes', 'receivedLikes'])
                     ->get()
                     ->map(function ($user) {
@@ -39,44 +39,35 @@ class AdminController extends Controller
     }
 
     public function editUser($id)
-{
-    $user = User::findOrFail($id); // Исправлено с findOrFall на findOrFail
-    return view('admin.users-edit', compact('user'));
-}
+    {
+        $user = User::findOrFail($id);
+        return view('admin.users-edit', compact('user'));
+    }
 
-public function updateUser(Request $request, $id)
-{
-    // Временная отладка
-    \Log::info('AdminController updateUser called', [
-        'user_id' => $id,
-        'request_data' => $request->all(),
-        'auth_user' => auth()->id()
-    ]);
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'role' => 'required|in:user,admin',
+            'age' => 'nullable|integer|min:18|max:100',
+            'gender' => 'nullable|in:Мужчина,Женщина',
+            'city' => 'nullable|string|max:100',
+            'about' => 'nullable|string|max:500',
+            'telegram' => 'nullable|string|max:100',
+        ]);
 
-    $user = User::findOrFail($id);
-    
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|email|unique:users,email,' . $id,
-        'role' => 'required|in:user,admin',
-        'age' => 'nullable|integer|min:18|max:100',
-        'gender' => 'nullable|in:Мужчина,Женщина',
-        'city' => 'nullable|string|max:100',
-        'about' => 'nullable|string|max:500',
-        'telegram' => 'nullable|string|max:100',
-    ]);
+        $user->update($request->all());
 
-    $user->update($request->all());
+        return redirect()->route('admin.users')->with('success', 'Пользователь обновлен');
+    }
 
-    \Log::info('User updated successfully', ['user_id' => $user->id]);
-
-    return redirect()->route('admin.users')->with('success', 'Пользователь обновлен');
-}
     public function deleteUser($id)
     {
         $user = User::findOrFail($id);
         
-        // Не даем удалить себя
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Нельзя удалить собственный аккаунт');
         }
@@ -86,44 +77,30 @@ public function updateUser(Request $request, $id)
         return back()->with('success', 'Пользователь удален');
     }
 
-    public function statistics()
-    {
-        $userStats = [
-            'by_gender' => User::select('gender', DB::raw('count(*) as count'))
-                            ->groupBy('gender')
-                            ->get(),
-            'by_city' => User::select('city', DB::raw('count(*) as count'))
-                          ->whereNotNull('city')
-                          ->groupBy('city')
-                          ->orderBy('count', 'desc')
-                          ->limit(10)
-                          ->get(),
-        ];
-
-        $activityStats = [
-            'likes_today' => Like::whereDate('created_at', today())->count(),
-            'matches_today' => UserMatch::whereDate('created_at', today())->count(),
-            'total_likes' => Like::count(),
-            'total_matches' => UserMatch::count(),
-        ];
-
-        return view('admin.statistics', compact('userStats', 'activityStats'));
-    }
-
     public function tags()
     {
-        return view('admin.tags');
+        $tags = Tag::all();
+        return view('admin.tags', compact('tags'));
     }
 
     public function storeTag(Request $request)
     {
-        // Здесь будет логика добавления тегов
-        return back()->with('success', 'Тег добавлен');
+        $request->validate([
+            'name' => 'required|string|max:255|unique:tags'
+        ]);
+
+        Tag::create([
+            'name' => $request->name
+        ]);
+
+        return back()->with('success', 'Тег успешно добавлен');
     }
 
     public function deleteTag($id)
     {
-        // Здесь будет логика удаления тегов
-        return back()->with('success', 'Тег удален');
+        $tag = Tag::findOrFail($id);
+        $tag->delete();
+
+        return back()->with('success', 'Тег успешно удален');
     }
 }

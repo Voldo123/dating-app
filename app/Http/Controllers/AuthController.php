@@ -4,46 +4,69 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Models\Tag;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function showRegister() {
-        return view('auth.register');
-    }
-
-    public function register(Request $request) {
-        $request->validate([
-            'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6',
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-
-        Auth::login($user);
-        return redirect()->route('profile.edit');
-    }
-
-    public function showLogin() {
+    public function showLoginForm()
+    {
         return view('auth.login');
     }
 
-    public function login(Request $request)
+    public function showRegistrationForm()
 {
-    if (Auth::attempt($request->only('email', 'password'))) {
-        return redirect()->route('profile.show', Auth::id()); // ✅ Передаём ID
-    }
-    return back()->withErrors(['email' => 'Неверные данные']);
+    $tags = Tag::all(); // 👈 Добавляем получение тегов
+    return view('auth.register', compact('tags'));
 }
 
-    public function logout() {
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'tags' => 'array|max:3'
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        $user->tags()->sync($request->input('tags', []));
+
+        Auth::login($user);
+
+        return redirect()->route('profile.edit');
+    }
+
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        if (Auth::attempt($credentials)) {
+            $request->session()->regenerate();
+            return redirect()->intended('feed');
+        }
+
+        return back()->withErrors([
+            'email' => 'Неверный логин или пароль.',
+        ]);
+    }
+
+
+
+    public function logout(Request $request)
+    {
         Auth::logout();
-        return redirect()->route('login.show');
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/');
     }
 }

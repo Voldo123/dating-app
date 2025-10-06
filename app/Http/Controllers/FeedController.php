@@ -11,17 +11,21 @@ use App\Models\UserMatch;
 class FeedController extends Controller
 {
     public function index()
-    {
-        // Исключаем уже пролайканных пользователей и себя
-        $likedUserIds = Auth::user()->sentLikes()->pluck('target_user_id');
-        $userIdsToExclude = $likedUserIds->push(Auth::id())->toArray();
+{
+    $user = Auth::user();
+    
+    // Исключаем уже пролайканных пользователей и себя
+    $likedUserIds = $user->sentLikes()->pluck('target_user_id');
+    $userIdsToExclude = $likedUserIds->push($user->id)->toArray();
 
-        $users = User::whereNotIn('id', $userIdsToExclude)
-                    ->where('id', '!=', Auth::id())
-                    ->get();
+    $users = User::whereNotIn('id', $userIdsToExclude)
+                ->where('id', '!=', $user->id)
+                ->with('tags') // 👈 Добавляем загрузку тегов
+                ->inRandomOrder() // 👈 Перемешиваем для разнообразия
+                ->get();
 
-        return view('feed.index', compact('users'));
-    }
+    return view('feed.index', compact('users'));
+}
 
     public function like($id)
     {
